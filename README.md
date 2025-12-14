@@ -1,1 +1,369 @@
-# Final_Project_Colin_Huntley
+
+# Analysis on How a Movie’s Budget Affects Its Box Office and Critical Success
+
+#### Colin Huntley
+
+## Introduction
+
+The goal of this project is to explore a dataset and determine how
+different factors affect a movie’s success.
+
+There are two main questions I plan on exploring:
+
+1.  What are the relations between a movie’s budget and its box office
+    and critical success?
+
+2.  What kind of relationship is there between a movie’s genre and its
+    box office performance, are certain genres more successful than
+    others?
+
+## Data
+
+This dataset comes from kaggle, specfically
+<https://www.kaggle.com/datasets/abdallahwagih/movies/data>. The dataset
+is provided as a single zipped csv file with 24 variables, many of which
+aren’t useful to this analysis.
+
+Loaded the tidyverse library and used it to process the zip file.
+
+``` r
+library(tidyverse)
+movies <- read_csv("movies.csv.zip")
+```
+
+### Cleaning
+
+The first step to cleaning the data is choosing the variables that will
+actually be useful to the analysis.
+
+``` r
+library(data.table)
+
+movies_clean <- movies %>%
+  select(
+    title,
+    budget,
+    revenue,
+    vote_average,
+    vote_count,
+    release_date,
+    genres
+  )
+
+summary(movies_clean)
+```
+
+    ##     title               budget             revenue           vote_average   
+    ##  Length:4803        Min.   :        0   Min.   :0.000e+00   Min.   : 0.000  
+    ##  Class :character   1st Qu.:   790000   1st Qu.:0.000e+00   1st Qu.: 5.600  
+    ##  Mode  :character   Median : 15000000   Median :1.917e+07   Median : 6.200  
+    ##                     Mean   : 29045040   Mean   :8.226e+07   Mean   : 6.092  
+    ##                     3rd Qu.: 40000000   3rd Qu.:9.292e+07   3rd Qu.: 6.800  
+    ##                     Max.   :380000000   Max.   :2.788e+09   Max.   :10.000  
+    ##                                                                             
+    ##    vote_count       release_date           genres         
+    ##  Min.   :    0.0   Min.   :1916-09-04   Length:4803       
+    ##  1st Qu.:   54.0   1st Qu.:1999-07-14   Class :character  
+    ##  Median :  235.0   Median :2005-10-03   Mode  :character  
+    ##  Mean   :  690.2   Mean   :2002-12-27                     
+    ##  3rd Qu.:  737.0   3rd Qu.:2011-02-16                     
+    ##  Max.   :13752.0   Max.   :2017-02-03                     
+    ##                    NA's   :1
+
+I also decided to extract the year information from the release_date
+variable, though I don’t use this value for any analysis, I did make a
+graph to get a better understanding of the data.
+
+``` r
+library(lubridate)
+library(ggplot2)
+
+movies_clean <- movies_clean %>%
+  mutate(
+    release_year  = year(release_date)
+  )
+
+movies_clean <- movies_clean %>%
+  select(-release_date)
+
+ggplot(movies_clean, aes(x = release_year)) +
+  geom_histogram(binwidth = 5, fill = "steelblue", color = "white") +
+  labs(
+    title = "Number of Movies Released Over Time",
+    x = "Release Year",
+    y = "Number of Movies"
+  ) +
+  theme_minimal()
+```
+
+![](README_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
+
+We can clearly see that the majority of the movies in this dataset have
+been released in the last 30 or so years. This provides useful context
+for the rest of the analysis.
+
+Looking at the variables, I felt like revenue wasn’t the best measure of
+whether a movie was successful so I decided to add a variable “profit,”
+which is simply equal to a movies revenue minus its budget. This will be
+useful for seeing how well a movie actually does rather than just how
+much it made in total.
+
+``` r
+movies_clean <- movies_clean %>%
+  mutate(
+    profit = revenue - budget
+  )
+```
+
+The final thing I did to clean the data is I removed the movies that had
+a listed budget of less than \$100. I did this after making a graph of
+budget and revenue that had quite a few movies that supposedly had a
+budget of \$0-\$100 but made significantly more. This seems more likely
+to be a mistake in the dataset than reality, so I removed them.
+
+``` r
+movies_clean <- movies_clean %>%
+  filter(
+    budget > 100,
+    revenue > 0,
+    !is.na(release_year)
+  )
+
+summary(movies_clean)
+```
+
+    ##     title               budget             revenue           vote_average 
+    ##  Length:3218        Min.   :      218   Min.   :7.000e+00   Min.   :0.00  
+    ##  Class :character   1st Qu.: 11000000   1st Qu.:1.723e+07   1st Qu.:5.80  
+    ##  Mode  :character   Median : 25000000   Median :5.556e+07   Median :6.30  
+    ##                     Mean   : 40793413   Mean   :1.217e+08   Mean   :6.31  
+    ##                     3rd Qu.: 55000000   3rd Qu.:1.470e+08   3rd Qu.:6.90  
+    ##                     Max.   :380000000   Max.   :2.788e+09   Max.   :8.50  
+    ##    vote_count         genres           release_year      profit          
+    ##  Min.   :    0.0   Length:3218        Min.   :1916   Min.   :-165710090  
+    ##  1st Qu.:  179.2   Class :character   1st Qu.:1998   1st Qu.:    294131  
+    ##  Median :  475.5   Mode  :character   Median :2005   Median :  26762314  
+    ##  Mean   :  980.1                      Mean   :2002   Mean   :  80858237  
+    ##  3rd Qu.: 1148.8                      3rd Qu.:2010   3rd Qu.:  97731306  
+    ##  Max.   :13752.0                      Max.   :2016   Max.   :2550965087
+
+### Variables
+
+- title: Title of the movie.
+
+- budget: Cost to create the movie.
+
+- revenue: How much the movie grossed after being released.
+
+- vote_average: Average rating of the movie from many peoples reviews,
+  out of ten.
+
+- vote_count: Number of ratings on that given movie.
+
+- Of note: for both vote variables I couldn’t find the source they used
+  to get the data but the general reviews seemed accurate, for instance
+  many of the highest reviewed movies are very commonly reviewed well so
+  I’ll treat the data as trustworthy.
+
+- genres: Genres of the movie.
+
+- release_year: Year the movie was released.
+
+- release_month: Month the movie was released.
+
+- release_decade: Decade the movie was released.
+
+- profit: How much the movie actually made.
+
+## Results
+
+### How does a movie’s budget affect its box office and critical success?
+
+``` r
+library(scales)
+```
+
+    ## 
+    ## Attaching package: 'scales'
+
+    ## The following object is masked from 'package:purrr':
+    ## 
+    ##     discard
+
+    ## The following object is masked from 'package:readr':
+    ## 
+    ##     col_factor
+
+``` r
+ggplot(movies_clean, aes(x = budget, y = revenue)) +
+  geom_point(alpha = 0.4) +
+  scale_x_log10(labels = comma) +
+  scale_y_log10(labels = comma) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    title = "Movie Budget vs Revenue",
+    x = "Budget (log scale)",
+    y = "Revenue (log scale)"
+  ) +
+  theme_minimal()
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+
+This graph shows the relationship between a movie’s budget and revenue,
+it’s more of just making sure of what I expected to be true, it shows
+that as a movie’s budget increases, the revenue that movie makes is
+expected to be higher. This is unsurprising but will help us answer the
+question.
+
+``` r
+ggplot(movies_clean, aes(x = budget, y = profit)) +
+  geom_point(alpha = 0.4) +
+  scale_x_log10(labels = comma) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(
+    title = "Movie Budget vs Profit",
+    x = "Budget (log scale)",
+    y = "Profit (Revenue − Budget)"
+  ) +
+  theme_minimal()
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+
+``` r
+cor_budget_revenue <- cor(movies_clean$budget, movies_clean$revenue, method = "spearman")
+cor_budget_revenue
+```
+
+    ## [1] 0.6755467
+
+``` r
+cor_budget_profit  <- cor(movies_clean$budget, movies_clean$profit, method = "spearman")
+cor_budget_profit
+```
+
+    ## [1] 0.3415413
+
+This graph shows the relationship between a movie’s budget and the
+actual profit it made. This graph shows a slightly positive correlation
+but it seemed like much weaker of a correlation that that between budget
+and revenue. To confirm, I used R to check the correlation of both
+relationships and it confirmed my findings. For budget and revenue, it
+gave a correlation coefficient of 0.676, which aligns with a moderate
+positive correlation. While for budget and profit, it gave a correlation
+coefficient of just 0.342, which aligns with a much weaker correlation.
+
+``` r
+ggplot(
+  movies_clean %>% filter(vote_count >= 10),
+  aes(x = budget, y = vote_average)
+) +
+  geom_point(alpha = 0.4) +
+  scale_x_log10(labels = comma) +
+  geom_smooth(method = "lm", se = FALSE, color = "orange") +
+  labs(
+    title = "Movie Budget vs Average Rating (≥ 10 Votes)",
+    x = "Budget (log scale)",
+    y = "Average Vote"
+  ) +
+  theme_minimal()
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+
+``` r
+cor(movies_clean$budget, movies_clean$vote_average, method = "spearman")
+```
+
+    ## [1] -0.1389697
+
+This graph shows the relationship between a movie’s budget and that
+movie’s average vote. I decided to exclude movies that got less than 10
+votes as those reviews are too skewed by individual people and are
+likely not representative of how much people enjoyed the movie. The
+graph shows a slightly surprising result, where the average vote of a
+movie actually decreases as the budget increases. The correlation
+coefficient (-0.139) is low enough to consider this relationship
+insignificant.
+
+Using our findings, we can say that while increasing a movie’s budget is
+generally correlated to an increased box office performance, the same
+cannot be said for its critical success, where it seems like there’s
+nearly no correlation between the two.
+
+Due to the way this analysis was does, correlation is the only claim I
+can make for both research questions, causal relationships are much more
+difficult to establish so making those claims from this data would be
+unfounded.
+
+### What kind of relationship is there between a movie’s genre and its box office performance, are certain genres more successful than others?
+
+``` r
+movies_genres <- movies_clean %>%
+  separate_rows(genres, sep = " ")
+
+movies_summary <- movies_genres %>%
+  group_by(genres) %>%
+  summarize(
+    n_movies = n(),
+    median_profit = median(profit, na.rm = TRUE),
+    mean_profit = mean(profit, na.rm = TRUE)
+  ) %>%
+  filter(n_movies >= 20) 
+```
+
+When trying to find how to answer this question, I ran into some
+problems with the dataset. The ‘genre’ variable for most rows contained
+multiple different genres, an example of one entry could be “Drama
+Comedy Thriller.” This made it challenging to work with so I created a
+new dataframe from movies_clean that would give a movie with multiple
+genres multiple entries, one for each genre it had. With this dataframe,
+I added a variable median_profit to help answer the question and didn’t
+consider any genres with less than 20 movies to focus on the genres that
+have sufficient data.
+
+``` r
+ggplot(movies_summary,
+       aes(x = reorder(genres, median_profit), y = median_profit)) +
+  geom_col(fill = "darkgreen") +
+  coord_flip() +
+  scale_y_continuous(labels = dollar) +
+  labs(
+    title = "Median Movie Profit by Genre",
+    x = "Genre",
+    y = "Median Profit"
+  ) +
+  theme_minimal()
+```
+
+![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+
+This graph shows the median profit for every main genre of movie in the
+dataset.
+
+Using the graph, we can answer the question and say yes, certain genres
+do certainly seem to be more profitable than others, with Animation,
+Family, Adventure, and Fantasy movies seeming to be the most lucrative.
+
+## Conclusion
+
+In conclusion, it seems like while there are definitely some factors you
+can look at to give you an idea, it’s always going to be difficult to
+tell whether a movie will be successful based on simple factors like
+budget and genre. This goes even more so for critical success, where it
+seems like there’s essentially no correlation between critical success
+and other basic factors.
+
+There’s much more research that could be done on this topic, there are
+many other variables that could be explored and now 8 more years of
+movie releases that could be looked into. One thing I’m curious about is
+whether the trends that were found still hold today given how much Covid
+changed the movie industry.
