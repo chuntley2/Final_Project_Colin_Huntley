@@ -168,11 +168,7 @@ summary(movies_clean)
 - genres: Genres of the movie.
 
 - release_year: Year the movie was released.
-
-- release_month: Month the movie was released.
-
-- release_decade: Decade the movie was released.
-
+  
 - profit: How much the movie actually made.
 
 ## Results
