@@ -47,7 +47,7 @@ summary(movies_clean)
 ```
 
 I also decided to extract the year information from the release_date variable, though I don't use this value for any analysis, I did make a graph to get a better understanding of the data.
-```{r, warning=FALSE, message=FALSE}
+```{r, warning = FALSE}
 library(lubridate)
 library(ggplot2)
 
@@ -67,8 +67,6 @@ ggplot(movies_clean, aes(x = release_year)) +
     y = "Number of Movies"
   ) +
   theme_minimal()
-
-
 ```
 
 We can clearly see that the majority of the movies in this dataset have been released in the last 30 or so years. This provides useful context for the rest of the analysis. 
